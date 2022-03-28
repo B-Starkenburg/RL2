@@ -10,6 +10,34 @@ import time
 LOG_DIR = f"models/{int(time.time())}"
 #from tensorflow.keras.
 
+def softmax(x, temp):
+    ''' Helper function from Helper.py of the first assignment '''
+    x = x / temp
+    z = x - max(x)
+    return np.exp(z)/np.sum(np.exp(z))
+
+def argmax(x):
+    ''' Helper function from Helper.py of the first assignment '''
+    try:
+        return np.random.choice(np.where(x == np.max(x))[0])
+    except:
+        return np.argmax(x)
+
+def linear_anneal(t,T,start,final,percentage):
+    ''' Helper function from Helper.py of the first assignment
+    Linear annealing scheduler
+    t: current timestep
+    T: total timesteps
+    start: initial value
+    final: value after percentage*T steps
+    percentage: percentage of T after which annealing finishes
+    '''
+    final_from_T = int(percentage*T)
+    if t > final_from_T:
+        return final
+    else:
+        return final + (start - final) * (final_from_T - t)/final_from_T
+
 
 class DQNagent():
 
@@ -56,12 +84,24 @@ class DQNagent():
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
         return model
     
-    def action_selection(self, state, method ="egreedy"):
+    def action_selection(self, state, method ="egreedy", temp=None):
         greedy_action = np.argmax(self.model.predict(state)[0])
 
         #Epsilon greedy
         if method == 'egreedy':
             if np.random.rand() < self.epsilon:
+                #Take random action
+                return np.random.randrange(self.n_possible_actions)
+            else:
+                return greedy_action
+        elif method == 'boltzmann':
+            if temp is None:
+                raise KeyError("Provide a temperature")
+  
+            return argmax(softmax(self.model.predict(state)[0], temp))
+        elif method == 'anneal_egreedy':
+            epsilon = linear_anneal() # this needs more work
+            if np.random.rand() < epsilon:
                 #Take random action
                 return np.random.randrange(self.n_possible_actions)
             else:
