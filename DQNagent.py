@@ -1,4 +1,4 @@
-#from msilib.schema import Directory
+from msilib.schema import Directory
 import numpy as np
 import random
 from numpy.core.numeric import indices
@@ -8,20 +8,9 @@ from tensorflow.keras.optimizers import Adam
 #from kerastuner.tuners import RandomSearch
 #from kerastuner.engine.hyperparameters import HyperParameters
 import time
-import sys
-import argparse
 
 LOG_DIR = f"models/{int(time.time())}"
 #from tensorflow.keras.
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-e', '--experience_replay', action='store_true', required=False, default=False)
-parser.add_argument('-t', '--target_network',action='store_true',  required=False, default=False)
-
-args = parser.parse_args()
-
-TARGET_NETWORK = args.target_network
-EXPERIENCE_REPLAY = args.experience_replay
 
 def softmax(x, temp):
     ''' Helper function from Helper.py of the first assignment '''
@@ -54,7 +43,7 @@ def linear_anneal(t,T,start,final,percentage):
 
 class DQNagent():
 
-    def __init__(self, state_shape, n_possible_actions, learning_rate = 0.01, future_reward_discount_factor = 0.95, exploration_parameter = 0.1, network_params = [(24,'relu'),(24,'relu')]):
+    def __init__(self, state_shape, n_possible_actions, use_target = False, use_buffer = False, batch_size = 32, learning_rate = 0.01, future_reward_discount_factor = 0.95, exploration_parameter = 0.1, network_params = [(24,'relu'),(24,'relu')]):
         self.state_shape = state_shape
         self.n_possible_actions = n_possible_actions
         self.learning_rate = learning_rate
@@ -62,8 +51,12 @@ class DQNagent():
         self.epsilon = exploration_parameter
         self.memory = []
         self.network_params = network_params
+        self.use_target = use_target
+        self.use_buffer = use_buffer
+        self.batch_size = batch_size
         self.model = self._build_model()
-        self.target_model = self._build_model()
+        if use_target:
+            self.target_model = self._build_model()
     
         #self.tuner = RandomSearch(
         #    self._tune_model,
@@ -97,7 +90,8 @@ class DQNagent():
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
         return model
     
-    def action_selection(self, state, method ="egreedy", temp=None, curT = None, totT = None, startE = None, finalE = None, percent = None):
+    def action_selection(self, state, method ="egreedy"):
+        state = np.copy(state[np.newaxis, :])
         greedy_action = np.argmax(self.model.predict(state)[0])
 
         #Epsilon greedy
@@ -109,12 +103,10 @@ class DQNagent():
                 return greedy_action
         elif method == 'boltzmann':
   
-            return argmax(softmax(self.model.predict(state)[0], temp))
+            return argmax(softmax(self.model.predict(state)[0], self.epsilon))
 
         elif method == 'anneal_egreedy':
-            if curT is None or totT is None or startE is None or finalE is None or percent is None:
-                raise KeyError("annealing is selected, but not all parameters are given")
-            epsilon = linear_anneal(curT, totT, startE, finalE, percent)
+            epsilon = linear_anneal() # this needs more work
             if np.random.rand() < epsilon:
                 #Take random action
                 return np.random.randint(self.n_possible_actions)
@@ -125,10 +117,10 @@ class DQNagent():
         else:
             raise KeyError("ERROR: not a valid method. Use: egreedy, boltzmann or anneal_egreedy")
     
-    def forward_pass(self, state, action = None, use_target_network = False):
+    def forward_pass(self, state, action = None):
         #Returns the network Q-value(s) of the given state (and action if specified)
-
-        if use_target_network:
+        state = np.copy(state[np.newaxis, :])
+        if self.use_target:
             if action == None:
                 return self.target_model.predict(state)
             else:
@@ -138,37 +130,43 @@ class DQNagent():
                 return self.model.predict(state)
             else:
                 return self.model.predict(state)[0][action]
-    
-    def train(self, state, action, reward, next_state, done, use_target_network = False):
+
+    def train(self):
         
-        #Calculate target    
-        Q_values_target = self.forward_pass(state)
-        if done:
-            target = reward
+        #When buffer is used we sample randomly from memory
+        #When buffer isn't used the memory is just the last n=batch_size examples
+        if self.use_buffer:
+            minibatch = random.sample(self.memory,self.batch_size)
         else:
-            target = reward + self.gamma*np.max(self.forward_pass(next_state, use_target_network = use_target_network)[0]) #correct? not DDQN right (greedy action from original model)
-        Q_values_target[0][action] = target
-
-        #self.tuner.search(x = state, y = Q_values_target, epochs = 1, batch_size = 64)
-        self.model.fit(state, Q_values_target, epochs = 1, verbose = 0)
-    
-    def memorize(self, state, action, reward, next_state, done):
-
-        if len(self.memory) >= 1e6:
-            self.memory.pop(0)
-        self.memory.append((state, action, reward, next_state, done))
-
-    def experience_replay_train(self, timestep, target_network_update_frequency, batch_size = 32, use_target_network = False):
-        minibatch = random.sample(self.memory,batch_size)
-        i = 0
+            minibatch = self.memory
+        
+        states = []
+        targets = []
         for state, action, reward, next_state, done in minibatch:
-            self.train(state, action, reward, next_state, done, use_target_network)
-            if (timestep*batch_size+i)%target_network_update_frequency == 0:
-                self.update_target_network()
-            i+=1
+            #Calculate targets    
+            Q_values_target = self.forward_pass(state)
+            if done:
+                target = reward
+            else:
+                target = reward + self.gamma*np.max(self.forward_pass(next_state)[0])
+            Q_values_target[0][action] = target
+            states.append(state)
+            targets.append(Q_values_target)
+        states = np.array(states)
+        targets = np.array(targets)
 
+        self.model.fit(states, targets, epochs = 1, verbose = 0)
+
+    def memorize(self, state, action, reward, next_state, done):
+        if self.use_buffer:
+            if len(self.memory) >= 1e6:
+                self.memory.pop(0)
+        else:
+            if len(self.memory) >= self.batch_size:
+                self.memory.pop(0)
+
+        self.memory.append((state, action, reward, next_state, done))
     
     def update_target_network(self):
         self.target_model.set_weights(self.model.get_weights()) #When to update, if using replay is it n/batch_size?
-
 
