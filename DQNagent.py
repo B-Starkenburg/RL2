@@ -84,7 +84,7 @@ class DQNagent():
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
         return model
     
-    def action_selection(self, state, method ="egreedy", temp=None):
+    def action_selection(self, state, method ="egreedy", temp=None, curT = None, totT = None, startE = None, finalE = None, percent = None):
         greedy_action = np.argmax(self.model.predict(state)[0])
 
         #Epsilon greedy
@@ -100,7 +100,9 @@ class DQNagent():
   
             return argmax(softmax(self.model.predict(state)[0], temp))
         elif method == 'anneal_egreedy':
-            epsilon = linear_anneal() # this needs more work
+            if curT is None or totT is None or startE is None or finalE is None or percent is None:
+                raise KeyError("annealing is selected, but not all parameters are given")
+            epsilon = linear_anneal(curT, totT, startE, finalE, percent)
             if np.random.rand() < epsilon:
                 #Take random action
                 return np.random.randrange(self.n_possible_actions)
