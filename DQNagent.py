@@ -23,10 +23,6 @@ args = parser.parse_args()
 TARGET_NETWORK = args.target_network
 EXPERIENCE_REPLAY = args.experience_replay
 
-print("Settings:")
-print(f"Experience replay: {EXPERIENCE_REPLAY}")
-print(f"Target network: {TARGET_NETWORK}")
-
 def softmax(x, temp):
     ''' Helper function from Helper.py of the first assignment '''
     x = x / temp
