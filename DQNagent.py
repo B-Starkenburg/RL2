@@ -1,4 +1,4 @@
-from msilib.schema import Directory
+#from msilib.schema import Directory
 import numpy as np
 import random
 from numpy.core.numeric import indices
@@ -8,9 +8,24 @@ from tensorflow.keras.optimizers import Adam
 #from kerastuner.tuners import RandomSearch
 #from kerastuner.engine.hyperparameters import HyperParameters
 import time
+import sys
+import argparse
 
 LOG_DIR = f"models/{int(time.time())}"
 #from tensorflow.keras.
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-e', '--experience_replay', action='store_true', required=False, default=False)
+parser.add_argument('-t', '--target_network',action='store_true',  required=False, default=False)
+
+args = parser.parse_args()
+
+TARGET_NETWORK = args.target_network
+EXPERIENCE_REPLAY = args.experience_replay
+
+print("Settings:")
+print(f"Experience replay: {EXPERIENCE_REPLAY}")
+print(f"Target network: {TARGET_NETWORK}")
 
 def softmax(x, temp):
     ''' Helper function from Helper.py of the first assignment '''
@@ -159,4 +174,5 @@ class DQNagent():
     
     def update_target_network(self):
         self.target_model.set_weights(self.model.get_weights()) #When to update, if using replay is it n/batch_size?
+
 
