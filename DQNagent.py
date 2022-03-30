@@ -98,7 +98,7 @@ class DQNagent():
                 return greedy_action
         elif method == 'boltzmann':
   
-            return argmax(softmax(self.model.predict(state)[0], self.epsilon))
+            return argmax(softmax(self.model.predict(state)[0], temp))
 
         elif method == 'anneal_egreedy':
             if curT is None or totT is None or startE is None or finalE is None or percent is None:
