@@ -57,17 +57,37 @@ class DQNagent():
         self.model = self._build_model()
         if use_target:
             self.target_model = self._build_model()
-
+    
+        #self.tuner = RandomSearch(
+        #    self._tune_model,
+        #    objective = "accuracy",
+        #    max_trials = 3,
+        #    executions_per_trial = 1,
+        #    directory = LOG_DIR
+        #)
 
     def _build_model(self):
         #Build the neural network, might be better to have it outside of the class for experimentation...
         #Right now its just a simple one with keras but we will have to experiment with number of layers, nodes, activation function, learning rate etc.
+
         model = Sequential()
-        model.add(Dense(self.network_params['input_units'], input_dim=self.state_shape[0], activation='relu'))
-        for _ in range(0,self.network_params['layers']):
-            model.add(Dense(self.network_params['layer_units'], input_dim=self.state_shape[0], activation='relu'))
+        model.add(Input(shape=self.state_shape))
+        for par in self.network_params:
+            model.add(Dense(par[0], activation=par[1]))
         model.add(Dense(self.n_possible_actions, activation='linear'))
-        model.compile(loss='mse', optimizer=Adam(learning_rate=self.network_params['learning_rate']), metrics=['accuracy'])
+        model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
+        return model
+
+    def _tune_model(self, hp):
+        #Build the neural network, might be better to have it outside of the class for experimentation...
+        #Right now its just a simple one with keras but we will have to experiment with number of layers, nodes, activation function, learning rate etc.
+
+        model = Sequential()
+        model.add(Dense(hp.Int("input_units", 32, 256, 32), input_dim=self.state_shape, activation='relu'))
+        for i in range(hp.Int("n_layers0", 1, 4)):
+            model.add(Dense(hp.Int(f"dens_{i}_units0", 32, 256, 32), input_dim=self.state_shape, activation='relu'))
+        model.add(Dense(self.n_possible_actions, activation='linear'))
+        model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
         return model
     
     def action_selection(self, state, method ="egreedy"):
