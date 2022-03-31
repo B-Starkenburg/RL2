@@ -69,13 +69,12 @@ class DQNagent():
     def _build_model(self):
         #Build the neural network, might be better to have it outside of the class for experimentation...
         #Right now its just a simple one with keras but we will have to experiment with number of layers, nodes, activation function, learning rate etc.
-
         model = Sequential()
-        model.add(Input(shape=self.state_shape))
-        for par in self.network_params:
-            model.add(Dense(par[0], activation=par[1]))
+        model.add(Dense(self.network_params['input_units'], input_dim=self.state_shape[0], activation='relu'))
+        for _ in range(0,self.network_params['layers']):
+            model.add(Dense(self.network_params['layer_units'], input_dim=self.state_shape[0], activation='relu'))
         model.add(Dense(self.n_possible_actions, activation='linear'))
-        model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate), metrics=['accuracy'])
+        model.compile(loss='mse', optimizer=Adam(learning_rate=self.network_params['learning_rate']), metrics=['accuracy'])
         return model
 
     def _tune_model(self, hp):
