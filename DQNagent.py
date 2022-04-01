@@ -8,9 +8,19 @@ from tensorflow.keras.optimizers import Adam
 #from kerastuner.tuners import RandomSearch
 #from kerastuner.engine.hyperparameters import HyperParameters
 import time
+import argparse
 
 LOG_DIR = f"models/{int(time.time())}"
 #from tensorflow.keras.
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-e', '--experience_replay', action='store_true', required=False, default=False)
+parser.add_argument('-t', '--target_network',action='store_true',  required=False, default=False)
+
+args = parser.parse_args()
+
+TARGET_NETWORK = args.target_network
+EXPERIENCE_REPLAY = args.experience_replay
 
 def softmax(x, temp):
     ''' Helper function from Helper.py of the first assignment '''
