@@ -185,7 +185,7 @@ class DQNagent():
         # Compute the expected Q values
         Q_targets = rewards + (self.gamma * Q_targets_next * (1-dones))
         Q_expected = self.model(states).gather(1, actions) ## current 
-        
+
         self.optim.zero_grad()
         loss = self.mse_loss(Q_expected, Q_targets.unsqueeze(1))
         
