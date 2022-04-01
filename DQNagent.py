@@ -1,4 +1,4 @@
-from msilib.schema import Directory
+from fcntl import I_PEEK
 import numpy as np
 import random
 from numpy.core.numeric import indices
@@ -50,6 +50,9 @@ def linear_anneal(t,T,start,final,percentage):
     else:
         return final + (start - final) * (final_from_T - t)/final_from_T
 
+def anneal_ep(cur_ep, max_ep, min_eps):
+    slope = (min_eps - 1.0) / max_ep
+    return max(slope * cur_ep + 1.0, min_eps)
 
 class DQNagent():
 
@@ -86,7 +89,7 @@ class DQNagent():
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.network_params['learning_rate']), metrics=['accuracy'])
         return model
     
-    def action_selection(self, state, method ="egreedy"):
+    def action_selection(self, state, method ="egreedy", annealOpts = None):
         state = np.copy(state[np.newaxis, :])
         greedy_action = np.argmax(self.model.predict(state)[0])
 
@@ -102,7 +105,9 @@ class DQNagent():
             return argmax(softmax(self.model.predict(state)[0], self.epsilon))
 
         elif method == 'anneal_egreedy':
-            epsilon = linear_anneal() # this needs more work
+            if annealOpts is None:
+                raise KeyError("Please provide annealing options")
+            epsilon = anneal_ep(annealOpts["current_episode"], annealOpts["max_episode"], annealOpts["min_epsilon"])
             if np.random.rand() < epsilon:
                 #Take random action
                 return np.random.randint(self.n_possible_actions)
