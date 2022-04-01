@@ -93,12 +93,11 @@ class QNetwork(nn.Module):
 
 class DQNagent():
 
-    def __init__(self, state_shape, n_possible_actions, use_target = False, use_buffer = False, batch_size = 32, learning_rate = 0.01, future_reward_discount_factor = 0.95, exploration_parameter = 0.1, hidden_dim = 16):
+    def __init__(self, state_shape, n_possible_actions, use_target = False, use_buffer = False, batch_size = 32, learning_rate = 0.01, future_reward_discount_factor = 0.95, hidden_dim = 16):
         self.state_shape = state_shape
         self.n_possible_actions = n_possible_actions
         self.learning_rate = learning_rate
         self.gamma = future_reward_discount_factor
-        self.epsilon = exploration_parameter
         self.memory = []
         self.hidden_dim = hidden_dim
         self.use_target = use_target
@@ -118,12 +117,12 @@ class DQNagent():
         #    directory = LOG_DIR
         #)
     
-    def action_selection(self, state, method ="egreedy"):
+    def action_selection(self, state, epsilon, method ="egreedy"):
         greedy_action = self.model(state).argmax().item()
 
         #Epsilon greedy
         if method == 'egreedy':
-            if np.random.rand() < self.epsilon:
+            if np.random.rand() < epsilon:
                 #Take random action
                 return np.random.randint(self.n_possible_actions)
             else:
@@ -131,7 +130,7 @@ class DQNagent():
 
         elif method == 'boltzmann':
   
-            return argmax(softmax(self.model.predict(state)[0], self.epsilon))
+            return argmax(softmax(self.model.predict(state)[0], epsilon))
 
         elif method == 'anneal_egreedy':
             epsilon = linear_anneal() # this needs more work
